@@ -13,8 +13,13 @@ dependencies = [
     "python-multipart (>=0.0.20,<0.0.21)",
     "pydantic (>=2.12.3,<3.0.0)",
     "aiortc (>=1.14.0,<2.0.0)",
-    "numpy (>=2.3.4,<3.0.0)",
-    "websockets (>=15.0.1,<16.0.0)"
+    "numpy (>=2,<2.3.0)",
+    "websockets (>=15.0.1,<16.0.0)",
+    "ultralytics (>=8.3.220,<9.0.0)",
+    "opencv-python (>=4.12.0.88,<5.0.0.0)",
+    "onnx (>=1.19.0,<2.0.0)",
+    "onnxruntime (>=1.23.0,<2.0.0)",
+    "onnxslim (>=0.1.70,<0.2.0)",
 ]
 
 

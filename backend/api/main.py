@@ -1,8 +1,14 @@
 import asyncio
+import cv2
+from ultralytics import YOLO
 from fastapi import FastAPI
 from pydantic import BaseModel
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamTrack
+from backend_yolo.src.core.Config import Config
+from backend_yolo.src.core.state_manager import StateManager
+from backend_yolo.src.services.detection_pipeline import DetectionPipeline
+from backend_yolo.src.modules.extract_data import extract_all_data
 import uvicorn
 import numpy as np 
 import logging
@@ -30,7 +36,13 @@ app.add_middleware(
     allow_methods=["*"], # Permite todos os métodos (GET, POST, OPTIONS, etc.)
     allow_headers=["*"], # Permite todos os cabeçalhos
 )
-
+# ----------------------------------------------------
+# MODELO YOLO PRE-FUNCIONAMENTO
+# ----------------------------------------------------
+model = YOLO(Config.MODEL_PATH)
+state = StateManager()
+pipeline = DetectionPipeline(model, state)
+placeholder = cv2.imread(Config.IMAGE_PATH)
 # Modelo para validar o JSON do SDP Offer que vem do Front-end
 class SdpOffer(BaseModel):
     sdp: str
@@ -51,8 +63,10 @@ async def consume_video_track(track: MediaStreamTrack):
             # EXEMPLO DE ACESSO AO DADO BRUTO:
             frame_data = frame.to_ndarray(format="bgr24") # Retorna um array NumPy
             
-            # --- TODO: PASSO 2 (Distribuição para o Backend de YOLO) ---
-            # Implemente o envio deste frame_array para o seu programa de YOLO.
+            pipeline_data = pipeline.process_frame(frame_data)
+            data = extract_all_data(pipeline_data)
+            print(data)
+            
             
             # Log simples de que está recebendo dados
             print(f"  [VÍDEO HUB] Recebido frame. Shape: {frame_data}")
