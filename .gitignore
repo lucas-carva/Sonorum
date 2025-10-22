@@ -1,0 +1,11 @@
+# Dependências
+node_modules/
+__pycache__
+
+# Build
+dist/
+build/
+
+# Ambiente
+.env
+
