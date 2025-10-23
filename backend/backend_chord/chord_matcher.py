@@ -1,5 +1,5 @@
-import sounddevice as sd
 import numpy as np
+from pathlib import Path
 import sys
 import collections
 import librosa
@@ -7,11 +7,13 @@ import json
 
 # Constantes de Áudio
 CHUNK = 1024
-VOLUME_THRESHOLD = 0.08 
+VOLUME_THRESHOLD = 0.10 
 SILENCE_CHUNKS = 10
 MIN_CHORDS_CHUNKS = 5
 MAX_FREQ_LIMIT = 800
-CHORDS_JSON = "./chords.json" 
+_BASE_DIR = Path(__file__).parent.parent.parent
+CHORDS_JSON =  _BASE_DIR / "./chords.json"
+RATE = 44100 
 SIMILARITY_THRESHOLD = 0.85 
 
 class AudioEventProcessor:
@@ -89,7 +91,7 @@ def extract_chroma(y, sr):
     Extrai e normaliza o cromagrama médio de um sinal de áudio.
     """
     try:
-        chroma = librosa.feature.chroma_stft(y=y, sr=sr, fmax=MAX_FREQ_LIMIT)
+        chroma = librosa.feature.chroma_stft(y=y, sr=sr)
         chroma_mean = np.mean(chroma, axis=1)
         norm = np.linalg.norm(chroma_mean)
         
@@ -97,7 +99,7 @@ def extract_chroma(y, sr):
             chroma_norm = chroma_mean / norm
         else:
             chroma_norm = chroma_mean 
-            
+        
         return chroma_norm.tolist()
 
     except Exception as e:

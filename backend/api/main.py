@@ -12,13 +12,19 @@ from pydantic import BaseModel
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamTrack
 from fastapi.middleware.cors import CORSMiddleware 
-# Importação da sua classe de processamento de áudio
-from backend_chord.chord_matcher import AudioEventProcessor 
+
 # Importações simuladas/reais para YOLO
+# --- CONFIGURAÇÃO DE AMBIENTE E INSTÂNCIAS GLOBAIS ---
+backend_root = os.path.join(os.path.dirname(__file__), '..')
+sys.path.insert(0, backend_root)
+
 from backend_yolo.src.core.config import Config
 from backend_yolo.src.core.state_manager import StateManager
 from backend_yolo.src.services.detection_pipeline import DetectionPipeline
 from backend_yolo.src.modules.extract_data import extract_all_data
+
+# Importação da sua classe de processamento de áudio
+from backend_chord.chord_matcher import AudioEventProcessor 
 
 
 # --- CONFIGURAÇÃO DE AMBIENTE E INSTÂNCIAS GLOBAIS ---
@@ -35,8 +41,18 @@ app = FastAPI()
 pcs = set() 
 
 origins = [
-    "http://localhost", "http://localhost:3000", "http://127.0.0.1:3000",
-    "http://127.0.0.61:8080", "http://localhost:5173"
+    # Endereços comuns de desenvolvimento Front-end
+    "http://localhost",
+    "http://localhost:3000",
+    "http://localhost:5173",
+
+    # O endereço IP específico que você está usando no Front-end (127.0.0.61)
+    "http://127.0.0.61",
+    "http://127.0.0.61:8080", # Embora a porta do FastAPI seja 8080, o navegador só envia a origem (porta 3000 ou 5173)
+
+    # Endereço de loopback padrão
+    "http://127.0.0.1",
+    "http://127.0.0.1:3000",
 ]
 
 app.add_middleware(
@@ -63,7 +79,7 @@ class SdpOffer(BaseModel):
 # 1. FUNÇÕES DE CONSUMO/DISTRIBUIÇÃO (Os Loops em Tempo Real)
 # ----------------------------------------------------
 
-async def consume_video_track(track: MediaStreamTrack):
+async def consume_video_track(track: MediaStreamTrack, data_channel):
     """Lê frames de vídeo e os distribui"""
     print("Consumo de VÍDEO iniciado.")
     while True:
@@ -76,14 +92,14 @@ async def consume_video_track(track: MediaStreamTrack):
             
             pipeline_data = pipeline.process_frame(frame_data)
             data = extract_all_data(pipeline_data)
-            print(data)
+            # print(data)
             
             
             # Log simples de que está recebendo dados
-            print(f"  [VÍDEO HUB] Recebido frame. Shape: {frame_data}")
+            # print(f"  [VÍDEO HUB] Recebido frame. Shape: {frame_data}")
             
         except Exception:
-            print("  [VÍDEO HUB] Faixa de vídeo encerrada.")
+            # print("  [VÍDEO HUB] Faixa de vídeo encerrada.")
             break
 
 async def consume_audio_track(track: MediaStreamTrack, data_channel):
@@ -95,7 +111,8 @@ async def consume_audio_track(track: MediaStreamTrack, data_channel):
             frame = await track.recv()
             
             # EXEMPLO DE ACESSO AO DADO BRUTO:
-            audio_buffer = frame.to_ndarray(format="s16") # Retorna um array NumPy
+            audio_buffer = frame.to_ndarray()
+            # print(f"  [ÁUDIO HUB] audio buffer: {audio_buffer}")
             
             # --- TODO: PASSO 3 (Distribuição para o Backend de Acordes) ---
             # Implemente o envio deste audio_buffer para o seu programa de Acordes.
@@ -104,11 +121,23 @@ async def consume_audio_track(track: MediaStreamTrack, data_channel):
                 chord_result['source'] = 'acorde' 
                 data_channel.send(json.dumps(chord_result))
 
-            print(f"  [ÁUDIO HUB] Enviando dados de Acorde: {chord_result}")
+
+            if chord_result != None:
+                print(f"  [ÁUDIO HUB] Enviando dados de Acorde: {chord_result}")
             
-        except Exception:
-            print("  [ÁUDIO HUB] Faixa de áudio encerrada.")
+        except StopAsyncIteration:
+            # 1. Trilha de áudio fechada pelo navegador. Conexão OK, mas stream parou.
+            print("  [ÁUDIO HUB] Faixa de áudio encerrada pelo cliente (StopAsyncIteration).")
             break
+        except asyncio.CancelledError:
+            # 2. Tarefa assíncrona foi cancelada.
+            print("  [ÁUDIO HUB] Tarefa de áudio cancelada.")
+            break
+        except Exception as e:
+            # 3. Qualquer outro erro (incluindo falha na conexão ou no PyAV)
+            print(f"  [ÁUDIO HUB] Erro inesperado no consumo de áudio: {type(e).__name__}: {e}")
+            break
+    print("Consumo de ÁUDIO finalizado.")
 
 # ----------------------------------------------------
 # 2. ENDPOINT DE SINALIZAÇÃO WEB (FastAPI)
