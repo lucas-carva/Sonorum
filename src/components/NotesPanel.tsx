@@ -87,6 +87,7 @@ export function NotesPanel({ cameraActive }: NotesPanelProps) {
           <RotateCcw className="w-3 h-3" />
         </Button>
       </div>
+      
 
       <Badge 
         variant={cameraActive ? "default" : "secondary"}

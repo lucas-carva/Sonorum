@@ -1,4 +1,4 @@
-from data.chords import chords
+from ..data.chords import chords
 
 def extract_all_data(data):
     casas = data.get("casas", {})

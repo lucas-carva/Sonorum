@@ -1,7 +1,7 @@
-from modules.collect_data import collect
-from modules.calc_axis import calc_axis
-from modules.predict_frets import predict_frets_positions, compare_projected_predicted
-from modules.grid_formation import grid_formalization
+from ..modules.collect_data import collect
+from ..modules.calc_axis import calc_axis
+from ..modules.predict_frets import predict_frets_positions, compare_projected_predicted
+from ..modules.grid_formation import grid_formalization
 
 class DetectionPipeline:
     def __init__(self, model, state_manager):

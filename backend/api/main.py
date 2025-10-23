@@ -1,18 +1,26 @@
 import asyncio
 import cv2
+import os
+import sys
+import logging
+import uvicorn
+import numpy as np
 from ultralytics import YOLO
 from fastapi import FastAPI
 from pydantic import BaseModel
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamTrack
-from backend_yolo.src.core.Config import Config
+from fastapi.middleware.cors import CORSMiddleware # IMPORT NECESSÁRIO!
+
+backend_root = os.path.join(os.path.dirname(__file__), '..')
+sys.path.insert(0, backend_root)
+
+from backend_yolo.src.core.config import Config
 from backend_yolo.src.core.state_manager import StateManager
 from backend_yolo.src.services.detection_pipeline import DetectionPipeline
 from backend_yolo.src.modules.extract_data import extract_all_data
-import uvicorn
-import numpy as np 
-import logging
-from fastapi.middleware.cors import CORSMiddleware # IMPORT NECESSÁRIO!
+
+
 # O PyAV (av) é instalado com o aiortc e lida com os frames.
 
 logging.basicConfig(level=logging.INFO)
@@ -26,7 +34,9 @@ origins = [
     "http://localhost",
     "http://localhost:3000",
     # Adicione o domínio ou IP do ambiente de pré-visualização, se necessário
-    "http://127.0.0.1:3000" 
+    "http://127.0.0.1:3000"
+    "http://127.0.0.61:8080"
+    "http://localhost:5173" 
 ]
 
 app.add_middleware(
@@ -39,10 +49,11 @@ app.add_middleware(
 # ----------------------------------------------------
 # MODELO YOLO PRE-FUNCIONAMENTO
 # ----------------------------------------------------
-model = YOLO(Config.MODEL_PATH)
+model = YOLO(str(Config.MODEL_PATH))
 state = StateManager()
 pipeline = DetectionPipeline(model, state)
-placeholder = cv2.imread(Config.IMAGE_PATH)
+placeholder = cv2.imread(str(Config.IMAGE_PATH))
+
 # Modelo para validar o JSON do SDP Offer que vem do Front-end
 class SdpOffer(BaseModel):
     sdp: str

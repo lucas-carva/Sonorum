@@ -28,23 +28,6 @@ def draw(data, frame, allowed_classes):
                 start, end = axis_data
                 cv2.line(frame, start, end, (0, 255, 255), 2)
         
-        if allowed_classes is None or "projections" in allowed_classes:
-            projections = data.get('projections', [])
-            for p in projections:
-                pt = p.get('pt')
-                proj = p.get('proj')
-                if pt and proj:
-                    cv2.circle(frame, pt, 3, (0, 200, 0), -1)
-                    cv2.circle(frame, proj, 3, (0, 0, 200), -1)
-                    cv2.line(frame, pt, proj, (200, 200, 0), 1)
-        
-        if allowed_classes is None or "expected" in allowed_classes:
-            expected = data.get('expected', [])
-            for p in expected:
-                pt = p.get('pt')
-                if pt:
-                    cv2.circle(frame, pt, 3, (255, 0, 255), -1)
-        
         if allowed_classes is None or "pt_projected_final" in allowed_classes:
             pt_projected_final = data.get('pt_projected_final', [])
             for p in pt_projected_final:
@@ -52,45 +35,6 @@ def draw(data, frame, allowed_classes):
                 if pt:
                     cv2.circle(frame, pt, 3, (255, 0, 0), -1)
 
-    return frame
-
-def draw_chord(frame, casas, chord):
-    if not casas:
-        return frame
-    
-    if chord["pestana"]["active"]:
-        casa_pestana = chord["pestana"]["casa_start"]
-        if casa_pestana not in casas:
-            return frame
-
-    if chord["pestana"]["active"]:
-        casa_pestana = chord["pestana"]["casa_start"]
-        cordas_pestana = chord["pestana"]["cordas"]
-        
-        if all(casa_pestana in casas and corda in casas[casa_pestana] for corda in cordas_pestana):
-            pt_inicio = casas[casa_pestana][cordas_pestana[0]]
-            pt_fim = casas[casa_pestana][cordas_pestana[-1]]
-            cv2.line(frame, pt_inicio, pt_fim, (0, 255, 255), 3)
-            
-            pt_medio = casas[casa_pestana][cordas_pestana[len(cordas_pestana)//2]]
-            cv2.putText(frame, f"P{chord['pestana']['dedo']}", 
-                       (pt_medio[0]-15, pt_medio[1]-20),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
-    
-    for corda, info in chord["position"].items():
-        casa = info["casa"]
-        dedo = info["dedo"]
-        tocar = info["tocar"]
-        
-        if casa == 0 or dedo == 0:
-            continue
-            
-        if casa in casas and corda in casas[casa]:
-            pt = casas[casa][corda]
-            cv2.circle(frame, pt, 4, (255, 0, 0), -1)
-            cv2.putText(frame, str(dedo), (pt[0]-10, pt[1]+5),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 2)
-    
     return frame
 
 def draw_chords(data, frame, chord_name):
@@ -105,7 +49,6 @@ def draw_chords(data, frame, chord_name):
 
     if chord_data.get('pestana'):
         pestana = chord_data['pestana']
-        print(f"🎨 [DRAW] Desenhando pestana: {pestana['start_point']} -> {pestana['end_point']}")
         cv2.line(frame, pestana['start_point'], pestana['end_point'], (0, 255, 255), 3)
         cv2.putText(frame, pestana['text'], 
                    pestana['text_position'],
@@ -114,7 +57,6 @@ def draw_chords(data, frame, chord_name):
     positions = chord_data.get('positions', [])
     
     for i, position in enumerate(positions):
-        print(f"🎨 [DRAW] Posição {i+1}: ponto {position['point']}, texto '{position['text']}'")
         cv2.circle(frame, position['point'], 4, (255, 0, 0), -1)
         cv2.putText(frame, position['text'], 
                    position['text_position'],

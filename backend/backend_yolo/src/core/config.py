@@ -1,8 +1,10 @@
 import cv2
+from pathlib import Path
 
 class Config:
-    MODEL_PATH = "backend_yolo/runs/detect/train/weights/best.onnx"
-    IMAGE_PATH = "backend_yolo/src/data/violao.jpg"
+    _BASE_DIR = Path(__file__).parent.parent.parent
+    MODEL_PATH = _BASE_DIR / "runs" / "detect" / "train" / "weights" / "best.onnx"
+    IMAGE_PATH = _BASE_DIR / "src" / "data" / "violao.jpg"
     WEBCAM_ID = 0
 
     VIEW_MODE = {

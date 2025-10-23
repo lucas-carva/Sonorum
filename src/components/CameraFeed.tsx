@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Camera, CameraOff } from 'lucide-react';
 
-const FASTAPI_URL = "http://127.0.0.1:8080/offer"
+const FASTAPI_URL = "http://127.0.0.61:8080/offer"
 
 interface CameraFeedProps {
   onCameraStateChange?: (isActive: boolean) => void;
