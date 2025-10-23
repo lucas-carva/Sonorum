@@ -5,23 +5,27 @@ import sys
 import logging
 import uvicorn
 import numpy as np
+import json
 from ultralytics import YOLO
 from fastapi import FastAPI
 from pydantic import BaseModel
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamTrack
-from fastapi.middleware.cors import CORSMiddleware # IMPORT NECESSÁRIO!
-
-backend_root = os.path.join(os.path.dirname(__file__), '..')
-sys.path.insert(0, backend_root)
-
+from fastapi.middleware.cors import CORSMiddleware 
+# Importação da sua classe de processamento de áudio
+from backend_chord.chord_matcher import AudioEventProcessor 
+# Importações simuladas/reais para YOLO
 from backend_yolo.src.core.config import Config
 from backend_yolo.src.core.state_manager import StateManager
 from backend_yolo.src.services.detection_pipeline import DetectionPipeline
 from backend_yolo.src.modules.extract_data import extract_all_data
 
 
-# O PyAV (av) é instalado com o aiortc e lida com os frames.
+# --- CONFIGURAÇÃO DE AMBIENTE E INSTÂNCIAS GLOBAIS ---
+backend_root = os.path.join(os.path.dirname(__file__), '..')
+sys.path.insert(0, backend_root)
+
+ACORDE_PROCESSOR = AudioEventProcessor()
 
 logging.basicConfig(level=logging.INFO)
 TARGET_HOST = "127.0.0.1" # Endereço de loopback para teste local
@@ -31,12 +35,8 @@ app = FastAPI()
 pcs = set() 
 
 origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    # Adicione o domínio ou IP do ambiente de pré-visualização, se necessário
-    "http://127.0.0.1:3000"
-    "http://127.0.0.61:8080"
-    "http://localhost:5173" 
+    "http://localhost", "http://localhost:3000", "http://127.0.0.1:3000",
+    "http://127.0.0.61:8080", "http://localhost:5173"
 ]
 
 app.add_middleware(
@@ -64,7 +64,7 @@ class SdpOffer(BaseModel):
 # ----------------------------------------------------
 
 async def consume_video_track(track: MediaStreamTrack):
-    """Lê frames de vídeo e os distribui (TODO: via Socket/WebSocket)."""
+    """Lê frames de vídeo e os distribui"""
     print("Consumo de VÍDEO iniciado.")
     while True:
         try:
@@ -86,8 +86,8 @@ async def consume_video_track(track: MediaStreamTrack):
             print("  [VÍDEO HUB] Faixa de vídeo encerrada.")
             break
 
-async def consume_audio_track(track: MediaStreamTrack):
-    """Lê frames de áudio e os distribui (TODO: via Socket/WebSocket)."""
+async def consume_audio_track(track: MediaStreamTrack, data_channel):
+    """Lê frames de áudio e os distribui """
     print("Consumo de ÁUDIO iniciado.")
     while True:
         try:
@@ -95,13 +95,16 @@ async def consume_audio_track(track: MediaStreamTrack):
             frame = await track.recv()
             
             # EXEMPLO DE ACESSO AO DADO BRUTO:
-            audio_buffer = frame.to_ndarray() # Retorna um array NumPy
+            audio_buffer = frame.to_ndarray(format="s16") # Retorna um array NumPy
             
             # --- TODO: PASSO 3 (Distribuição para o Backend de Acordes) ---
             # Implemente o envio deste audio_buffer para o seu programa de Acordes.
-            
-            # Log simples de que está recebendo dados
-            print(f"  [ÁUDIO HUB] Recebido frame. Amostras: {audio_buffer}")
+            chord_result = await asyncio.to_thread(ACORDE_PROCESSOR.process_audio_chunk, audio_buffer)
+            if chord_result and data_channel and data_channel.readyState == 'open':
+                chord_result['source'] = 'acorde' 
+                data_channel.send(json.dumps(chord_result))
+
+            print(f"  [ÁUDIO HUB] Enviando dados de Acorde: {chord_result}")
             
         except Exception:
             print("  [ÁUDIO HUB] Faixa de áudio encerrada.")
@@ -117,6 +120,8 @@ async def offer_handler(offer_data: SdpOffer):
     pc = RTCPeerConnection()
     pcs.add(pc) 
 
+    results_channel = pc.createDataChannel("results_channel")
+
     # Opcional: Handler para limpar a conexão quando ela fecha
     @pc.on("iceconnectionstatechange")
     async def on_iceconnectionstatechange():
@@ -130,10 +135,10 @@ async def offer_handler(offer_data: SdpOffer):
     def on_track(track):
         if track.kind == "video":
             # Inicia o consumo do VÍDEO em segundo plano
-            asyncio.ensure_future(consume_video_track(track))
+            asyncio.ensure_future(consume_video_track(track, results_channel))
         elif track.kind == "audio":
             # Inicia o consumo do ÁUDIO em segundo plano
-            asyncio.ensure_future(consume_audio_track(track))
+            asyncio.ensure_future(consume_audio_track(track, results_channel))
     
     # 1. Aplica o SDP Offer recebido
     offer = RTCSessionDescription(sdp=offer_data.sdp, type=offer_data.type)

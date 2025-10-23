@@ -40,6 +40,35 @@ export function CameraFeed({ onCameraStateChange }: CameraFeedProps) {
       pc.addTrack(track, mediaStream);
     });
 
+    //1.5 Listener para receber o DataChannel criado pelo Peer remoto (Python)
+    pc.ondatachannel = (event) => {
+    const channel = event.channel;
+    
+    // O Python nomeou este canal como "results_channel"
+    if (channel.label === "results_channel") {
+        console.log(`DataChannel recebido: ${channel.label}`);
+
+        // Ouve mensagens JSON enviadas do Python (resultados YOLO/Acorde)
+        channel.onmessage = (e) => {
+            try {
+                // Recebe a string JSON e converte para objeto JS
+                const result = JSON.parse(e.data);
+                
+                // --- TRATAMENTO DO RESULTADO ---
+                if (result.source === 'yolo') {
+                    // Exemplo de como você usaria as coordenadas:
+                    console.log(`YOLO RECEBIDO: Ponto (${result.coordinates.join(', ')})`);
+                    // **TODO: Chamar setYoloCoords() aqui**
+                } else if (result.source === 'acorde') {
+                    console.log(`ACORDE RECEBIDO: ${result.acorde} (Sim: ${result.similarity})`);
+                    // **TODO: Chamar setAcordeStatus() aqui**
+                }
+            } catch (error) {
+                console.error("Erro ao analisar dados do DataChannel:", error);
+            }
+        };
+    }
+};
     // 2. Cria e define a descrição local (Offer)
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
